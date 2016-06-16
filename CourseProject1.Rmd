@@ -1,0 +1,122 @@
+---
+title: 'Reproducible Research: Course Project 1'
+author: "A Suarez-Pierre"
+date: "June 16, 2016"
+output: html_document
+---
+
+```{r echo=F}
+options(warn=-1) #avoids warnings messages
+```
+
+### 1. Load necessary packages and set working directory
+```{r message=FALSE}
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+library(gridExtra)
+
+
+setwd("/Users/asuarez/Desktop/ReproducibleResearch")
+```
+
+
+### 2. Read the dataset and process the data
+```{r}
+df = read.csv("activity.csv", stringsAsFactors=FALSE)
+```
+
+
+
+### 3. Histogram of the total number of steps taken each day
+```{r}
+df = group_by(df, date)
+statsByDay = summarise(df, steps=sum(steps, na.rm=TRUE))
+
+ggplot(data=statsByDay, aes(x=date, y=steps)) + geom_bar(stat="identity", fill="blue") + 
+      theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+      labs(title="Total Steps Taken Each Day", x="Day", y="Total Count")
+```
+
+
+### 4. Mean and median number of steps taken each day
+*Pardon the long list*
+```{r}
+statsByDay = summarise(df, 
+                       mean=round(mean(steps, na.rm=TRUE),2), 
+                       median=median(steps, na.rm=TRUE))
+
+print(statsByDay, n=62)
+```
+
+
+### 5. Times series plot of the average number of steps taken 
+```{r}
+ggplot(data=statsByDay, aes(x=date, y=mean, group=1)) + geom_point(col="blue") + 
+      geom_line(col="blue") + theme_bw() + 
+      theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+      labs(title="Mean Steps Taken Each Day", x="Day", y="Average")
+```
+
+
+### 6. The 5-min interval that, on average, contains the maximum number of steps
+```{r}
+df = group_by(df, interval)
+
+statsByInt = summarise(df, mean=round(mean(steps, na.rm=TRUE), 2))
+statsByInt = arrange(statsByInt, desc(mean))
+
+max = (statsByInt$interval[1])
+print(max)
+```
+
+The interval with the max number of steps on average is `r max`.
+
+
+### 7. Histogram of the number of steps taken each day after missing values are imputed
+```{r}
+df = group_by(df, date)
+statsByDay = summarise(df, steps=sum(steps, na.rm=TRUE))
+
+missing = statsByDay$steps==0
+missing = c(FALSE, missing) # array containing days after missing data
+
+dayAfter = statsByDay[missing,]
+dayAfter = dayAfter[1:7,] #removes empty row at the bottom
+```
+
+Now we print the histogram
+```{r}
+ggplot(data=dayAfter, aes(x=date, y=steps)) + geom_bar(stat="identity", fill="blue") + 
+      theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+      labs(title="Total Steps Taken Each Day", x="Day", y="Total Count")
+```
+
+
+### 8. Panel plot comparing the average number of steps taken per 5-min interval across weekdays and weekends
+```{r}
+df$date = ymd(df$date)
+
+# Id which are weekdays 
+df = mutate(df, weekday=ifelse(wday(date)==1 | wday(date)==7, 0, 1)) 
+
+
+# Averages by interval 
+df = group_by(df, weekday, interval)
+statsByInt = summarise(df, mean=round(mean(steps, na.rm=TRUE), 2))
+
+
+# Separating into 2 dataframes depending on weekday Vs weekend
+wkdays = filter(statsByInt, weekday==1)[,2:3]
+wkends = filter(statsByInt, weekday==0)[,2:3]
+
+
+# Generating plots
+plot1 = ggplot(data=wkdays, aes(x=interval, y=mean)) + geom_line(col="blue") + theme_bw() + 
+        labs(title="Weekdays: Avg Steps By Time of Day", x="Time", y="Average")
+plot2 = ggplot(data=wkends, aes(x=interval, y=mean)) + geom_line(col="blue") + theme_bw() + 
+        labs(title="Weekends: Avg Steps By Time of Day", x="Time", y="Average")
+
+grid.arrange(plot1, plot2, nrow=2)
+```
+
